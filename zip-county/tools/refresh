@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""zip-county refresh: rebuild the ZIP -> county data embedded in ../index.html.
+
+Source: HUD-USPS ZIP Code Crosswalk, ZIP-COUNTY, via the HUD User API
+  https://www.huduser.gov/hudapi/public/usps?type=2&query=OR
+Written 2026-09-25. First run pulled 2026 Q2 (474 ZIPs).
+
+The API token is read from macOS Keychain (service "hud-api-token") and is
+never printed or written to disk.
+
+Usage (from the repo root or anywhere):
+  zip-county/tools/refresh               fetch, process, print the diff (changes nothing)
+  zip-county/tools/refresh --apply       same, then write the data and bump the app version
+  zip-county/tools/refresh --xlsx FILE   use a downloaded ZIP_COUNTY_<MMYYYY>.xlsx instead of the API
+"""
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+import xml.etree.ElementTree as ET
+import zipfile
+from pathlib import Path
+
+API_URL = "https://www.huduser.gov/hudapi/public/usps?type=2&query=OR"
+KEYCHAIN_SERVICE = "hud-api-token"
+
+TOOL_DIR = Path(__file__).resolve().parent.parent
+INDEX = TOOL_DIR / "index.html"
+SW = TOOL_DIR / "sw.js"
+CACHE_DIR = Path(__file__).resolve().parent / ".cache"  # gitignored
+
+DATA_START = "/* ZIPDATA:START */"
+DATA_END = "/* ZIPDATA:END */"
+VERSION_RE = re.compile(r'const VERSION = "(\d+)\.(\d+)";')
+
+MIN_SHARE = 0.01     # drop county rows under 1% (the largest is always kept)
+MOVED_POINTS = 5     # diff reports shares that moved more than this
+
+# County FIPS -> display name. Oregon counties are bare names ("Multnomah");
+# out-of-state counties carry their state ("Modoc Co., CA").
+COUNTIES = {
+    "41001": "Baker", "41003": "Benton", "41005": "Clackamas", "41007": "Clatsop",
+    "41009": "Columbia", "41011": "Coos", "41013": "Crook", "41015": "Curry",
+    "41017": "Deschutes", "41019": "Douglas", "41021": "Gilliam", "41023": "Grant",
+    "41025": "Harney", "41027": "Hood River", "41029": "Jackson", "41031": "Jefferson",
+    "41033": "Josephine", "41035": "Klamath", "41037": "Lake", "41039": "Lane",
+    "41041": "Lincoln", "41043": "Linn", "41045": "Malheur", "41047": "Marion",
+    "41049": "Morrow", "41051": "Multnomah", "41053": "Polk", "41055": "Sherman",
+    "41057": "Tillamook", "41059": "Umatilla", "41061": "Union", "41063": "Wallowa",
+    "41065": "Wasco", "41067": "Washington", "41069": "Wheeler", "41071": "Yamhill",
+    # Neighboring counties in case a border ZIP ever reaches into them
+    "53003": "Asotin Co., WA", "53005": "Benton Co., WA", "53011": "Clark Co., WA",
+    "53013": "Columbia Co., WA", "53015": "Cowlitz Co., WA", "53023": "Garfield Co., WA",
+    "53039": "Klickitat Co., WA", "53049": "Pacific Co., WA", "53059": "Skamania Co., WA",
+    "53069": "Wahkiakum Co., WA", "53071": "Walla Walla Co., WA",
+    "16003": "Adams Co., ID", "16027": "Canyon Co., ID", "16049": "Idaho Co., ID",
+    "16069": "Nez Perce Co., ID", "16073": "Owyhee Co., ID", "16075": "Payette Co., ID",
+    "16087": "Washington Co., ID",
+    "06015": "Del Norte Co., CA", "06049": "Modoc Co., CA", "06093": "Siskiyou Co., CA",
+    "32013": "Humboldt Co., NV", "32031": "Washoe Co., NV",
+}
+
+
+def fail(msg):
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+# ---------- Input ----------
+
+def fetch_api():
+    token = subprocess.run(
+        ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    if not token:
+        fail(f'No token found in Keychain under "{KEYCHAIN_SERVICE}".')
+    req = urllib.request.Request(API_URL, headers={
+        "Authorization": f"Bearer {token}", "User-Agent": "zip-county-refresh"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            body = r.read()
+    except urllib.error.HTTPError as e:
+        fail(f"HUD API returned HTTP {e.code} {e.reason}. "
+             "Fallback: download ZIP_COUNTY_<MMYYYY>.xlsx from HUD User and use --xlsx.")
+    except urllib.error.URLError as e:
+        fail(f"Could not reach the HUD API ({e.reason}). Fallback: use --xlsx.")
+    CACHE_DIR.mkdir(exist_ok=True)
+    try:
+        data = json.loads(body)["data"]
+        quarter = f'{data["year"]}Q{data["quarter"]}'
+        rows = data["results"]
+    except (ValueError, KeyError, TypeError):
+        fail("Unexpected response from the HUD API (not the usual JSON layout).")
+    (CACHE_DIR / f"hud-zip-county-OR-{quarter}.json").write_bytes(body)
+    return quarter, [{
+        "zip": str(r["zip"]).zfill(5), "county": str(r["geoid"]).zfill(5), "state": r["state"],
+        "res": float(r["res_ratio"]), "tot": float(r["tot_ratio"]),
+    } for r in rows]
+
+
+def read_xlsx(path):
+    """Minimal .xlsx reader (stdlib only): first sheet, header row by name."""
+    m = re.search(r"(\d{2})(\d{4})", Path(path).name)
+    if not m:
+        fail("Can't tell the quarter from the file name; expected ZIP_COUNTY_<MMYYYY>.xlsx.")
+    quarter = f"{m.group(2)}Q{(int(m.group(1)) + 2) // 3}"
+    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    with zipfile.ZipFile(path) as z:
+        shared = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", ns):
+                shared.append("".join(t.text or "" for t in si.iter(f"{{{ns['m']}}}t")))
+        sheet = sorted(n for n in z.namelist() if re.match(r"xl/worksheets/sheet\d+\.xml$", n))[0]
+        root = ET.fromstring(z.read(sheet))
+    table = []
+    for row in root.iter(f"{{{ns['m']}}}row"):
+        cells = {}
+        for c in row.findall("m:c", ns):
+            col = re.match(r"[A-Z]+", c.get("r")).group()
+            if c.get("t") == "inlineStr":
+                val = "".join(t.text or "" for t in c.iter(f"{{{ns['m']}}}t"))
+            else:
+                v = c.find("m:v", ns)
+                val = None if v is None else v.text
+                if val is not None and c.get("t") == "s":
+                    val = shared[int(val)]
+            cells[col] = val
+        table.append(cells)
+    header = {(v or "").strip().upper(): k for k, v in table[0].items()}
+    need = {"ZIP", "COUNTY", "USPS_ZIP_PREF_STATE", "RES_RATIO", "TOT_RATIO"}
+    if not need <= header.keys():
+        fail(f"xlsx is missing columns: {sorted(need - header.keys())}")
+    col = lambda r, name: r.get(header[name])
+    rows = []
+    for r in table[1:]:
+        if not col(r, "ZIP"):
+            continue
+        rows.append({
+            "zip": str(int(float(col(r, "ZIP")))).zfill(5),
+            "county": str(int(float(col(r, "COUNTY")))).zfill(5),
+            "state": col(r, "USPS_ZIP_PREF_STATE"),
+            "res": float(col(r, "RES_RATIO") or 0), "tot": float(col(r, "TOT_RATIO") or 0),
+        })
+    return quarter, rows
+
+
+# ---------- Processing ----------
+
+def whole_percents(shares):
+    """Rescale to 100 and round so the parts still add up to exactly 100."""
+    total = sum(shares)
+    raw = [s * 100 / total for s in shares]
+    out = [int(x) for x in raw]
+    by_remainder = sorted(range(len(raw)), key=lambda i: raw[i] - out[i], reverse=True)
+    for i in by_remainder[: 100 - sum(out)]:
+        out[i] += 1
+    return out
+
+
+def process(rows):
+    by_zip = {}
+    for r in rows:
+        if r["state"] == "OR":
+            by_zip.setdefault(r["zip"], []).append(r)
+    unknown = sorted({r["county"] for rs in by_zip.values() for r in rs} - COUNTIES.keys())
+    if unknown:
+        fail(f"Unknown county FIPS {unknown}: add them to COUNTIES in this script.")
+    zips, by_all = {}, []
+    for z, rs in sorted(by_zip.items()):
+        key = "res"
+        if sum(r["res"] for r in rs) == 0:
+            key = "tot"
+            by_all.append(z)
+        rs = sorted(rs, key=lambda r: r[key], reverse=True)
+        kept = [rs[0]] + [r for r in rs[1:] if r[key] >= MIN_SHARE]
+        pcts = whole_percents([r[key] for r in kept])
+        # A sliver can still round to 0% after rescaling; drop it.
+        zips[z] = [[COUNTIES[r["county"]], p] for r, p in zip(kept, pcts) if p > 0]
+    return zips, by_all
+
+
+# ---------- Embedded data ----------
+
+def quarter_label(q):
+    return f"HUD-USPS {q[:4]} Q{q[-1]}"
+
+
+def render(quarter, zips, by_all):
+    lines = [
+        "const DATA = {",
+        f'  "src": "HUD-USPS ZIP-COUNTY {quarter}",',
+        f'  "label": {json.dumps(quarter_label(quarter))},',
+        f'  "byAll": {json.dumps(by_all)},',
+        '  "zips": {',
+    ]
+    items = list(zips.items())
+    for i, (z, cs) in enumerate(items):
+        comma = "," if i < len(items) - 1 else ""
+        lines.append(f'    "{z}": {json.dumps(cs, separators=(",", ":"))}{comma}')
+    lines += ["  }", "};"]
+    return "\n".join(lines)
+
+
+def read_embedded(html):
+    try:
+        block = html.split(DATA_START, 1)[1].split(DATA_END, 1)[0]
+    except IndexError:
+        fail(f"Couldn't find the {DATA_START} / {DATA_END} markers in index.html.")
+    block = block.strip()
+    if not block:
+        return None
+    body = block.removeprefix("const DATA =").strip().rstrip(";")
+    return json.loads(body)
+
+
+# ---------- Diff ----------
+
+def print_diff(old, quarter, zips, by_all):
+    old_zips = old["zips"] if old else {}
+    old_src = old["src"] if old else "(nothing embedded yet)"
+    print(f"Current: {old_src}")
+    print(f"New:     HUD-USPS ZIP-COUNTY {quarter}  ({len(zips)} ZIPs, "
+          f"{sum(len(c) > 1 for c in zips.values())} span more than one county)\n")
+
+    fmt = lambda cs: " · ".join(f"{n} {p}%" for n, p in cs)
+    added = sorted(zips.keys() - old_zips.keys())
+    removed = sorted(old_zips.keys() - zips.keys())
+    county_changed, moved = [], []
+    for z in sorted(zips.keys() & old_zips.keys()):
+        a, b = dict(old_zips[z]), dict(zips[z])
+        if a.keys() != b.keys():
+            county_changed.append(z)
+        elif any(abs(a[n] - b[n]) > MOVED_POINTS for n in a):
+            moved.append(z)
+
+    if old is None:
+        print(f"All {len(added)} ZIPs are new (first build). ZIPs that span counties:")
+        for z in added:
+            if len(zips[z]) > 1:
+                print(f"  {z}  {fmt(zips[z])}")
+    else:
+        print(f"Added ({len(added)}):")
+        for z in added:
+            print(f"  {z}  {fmt(zips[z])}")
+        print(f"Removed ({len(removed)}):")
+        for z in removed:
+            print(f"  {z}  was {fmt(old_zips[z])}")
+        print(f"County list changed ({len(county_changed)}):")
+        for z in county_changed:
+            print(f"  {z}  {fmt(old_zips[z])}  ->  {fmt(zips[z])}")
+        print(f"Share moved more than {MOVED_POINTS} points ({len(moved)}):")
+        for z in moved:
+            print(f"  {z}  {fmt(old_zips[z])}  ->  {fmt(zips[z])}")
+    old_all = set(old["byAll"]) if old else set()
+    if set(by_all) != old_all or old is None:
+        print(f"\nBusiness-only ZIPs, shown 'by all addresses' ({len(by_all)}): {', '.join(by_all) or 'none'}")
+    return bool(added or removed or county_changed or moved or set(by_all) != old_all
+                or (old and old["src"] != f"HUD-USPS ZIP-COUNTY {quarter}"))
+
+
+# ---------- Apply ----------
+
+def bump(text, path):
+    m = VERSION_RE.search(text)
+    if not m:
+        fail(f'No `const VERSION = "x.y";` found in {path.name}.')
+    new = f"{m.group(1)}.{int(m.group(2)) + 1}"
+    return VERSION_RE.sub(f'const VERSION = "{new}";', text, count=1), new
+
+
+def apply(html, quarter, zips, by_all):
+    before, rest = html.split(DATA_START, 1)
+    _, after = rest.split(DATA_END, 1)
+    html = f"{before}{DATA_START}\n{render(quarter, zips, by_all)}\n{DATA_END}{after}"
+    html, v1 = bump(html, INDEX)
+    sw, v2 = bump(SW.read_text(), SW)
+    if v1 != v2:
+        fail(f"index.html and sw.js versions disagree ({v1} vs {v2}); fix by hand first.")
+    INDEX.write_text(html)
+    SW.write_text(sw)
+    print(f"\nWrote {len(zips)} ZIPs to index.html; version is now {v1} (cache zip-county-v{v1}).")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--apply", action="store_true", help="write the data and bump versions")
+    ap.add_argument("--xlsx", metavar="FILE", help="use a downloaded HUD xlsx instead of the API")
+    args = ap.parse_args()
+
+    quarter, rows = read_xlsx(args.xlsx) if args.xlsx else fetch_api()
+    zips, by_all = process(rows)
+    if not zips:
+        fail("No Oregon ZIPs in the input.")
+    html = INDEX.read_text()
+    changed = print_diff(read_embedded(html), quarter, zips, by_all)
+    if not args.apply:
+        print("\nNo files changed. Re-run with --apply to embed this data.")
+    elif not changed:
+        print("\nNothing changed; files left alone.")
+    else:
+        apply(html, quarter, zips, by_all)
+
+
+if __name__ == "__main__":
+    main()

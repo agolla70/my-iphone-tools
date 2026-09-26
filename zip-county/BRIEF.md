@@ -74,7 +74,7 @@ I type a 5-digit Oregon ZIP and instantly see which county it's in. If the ZIP s
 - Fewer than 5 digits: show nothing yet (no error).
 - A 5-digit ZIP outside 970xx–979xx: "Not an Oregon ZIP."
 - An Oregon-range ZIP not in the data: "Not found — may be a PO Box-only or new ZIP."
-- A ZIP with only a tiny out-of-state sliver (e.g., 97913 Nyssa, which may show a <1% Idaho sliver): after filtering it shows as a single county.
+- A ZIP with only a tiny out-of-state sliver: after filtering it shows as a single county. (As of 2026 Q2, HUD's data has no out-of-state county rows for any Oregon ZIP; 97913 Nyssa is Malheur only.)
 - Business-only ZIP (residential share is 0): use the total-address share and label it.
 - No network on first launch: the app can't cache yet. Only a one-time online visit is required.
 
@@ -84,14 +84,15 @@ None.
 ## 9. Done when (acceptance tests on the iPhone)
 - [ ] Works in airplane mode after the first online launch.
 - [ ] "97220" returns "Multnomah County" as a single county.
-- [ ] At least one known split ZIP (chosen from the data during the build) shows the banner and every county with its share.
+- [ ] Known split ZIP 97321 (Albany) shows the banner and "Linn 69% · Benton 31%".
 - [ ] "98101" shows "Not an Oregon ZIP."
 - [ ] The footer shows the version and the data quarter.
 - [ ] Running the refresh script prints a diff, and after approval an update shows the new version after one online launch.
 - [ ] The HUD token does not appear anywhere in the repo or its git history.
 
 ## 10. Open questions
-- Confirm at build time that `query=OR` returns all Oregon ZIPs, including any that cross state lines. Check once against `query=All` filtered to state OR.
+- ~~Confirm at build time that `query=OR` returns all Oregon ZIPs.~~ Resolved 2026-09-25: `query=OR` matched `query=All` filtered to preferred state OR exactly (474 ZIPs, 568 rows, identical shares, 2026 Q2). No Oregon ZIP has an out-of-state county row.
 
 ## Change Log
 - 2026-09-25: Brief created.
+- 2026-09-25: v1.0 built. Refresh script is Python at `zip-county/tools/refresh` (dry run by default; `--apply` writes data and bumps the version; `--xlsx FILE` fallback, untested against a real HUD file). Resolved the `query=OR` question (see Section 10). Split test ZIP set to 97321. Data: 2026 Q2, 474 ZIPs, 60 multi-county, 19 business-only. Commit and push stay manual steps done by Claude after approval, not by the script.

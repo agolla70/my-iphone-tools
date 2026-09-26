@@ -1,1 +1,4 @@
 .DS_Store
+.claude/
+zip-county/tools/.cache/
+zip-county/tools/*.xlsx

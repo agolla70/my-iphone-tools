@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#1f6f5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ZIP County">
+  <title>Oregon ZIP → County</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon-192.png">
+  <style>
+    :root {
+      --bg: #f6f7f5; --fg: #16201c; --muted: #5f6b66; --card: #ffffff; --line: #d6dcd9;
+      --accent: #1f6f5c; --split-bg: #fff3d6; --split-fg: #7a4a00; --split-line: #e9b949;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111615; --fg: #eef2f0; --muted: #9aa8a2; --card: #1b2220; --line: #2e3835;
+        --accent: #5fc3a7; --split-bg: #3a2b0c; --split-fg: #ffd98a; --split-line: #b8862a;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--fg); }
+    body {
+      font: 17px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      min-height: 100dvh; display: flex; flex-direction: column;
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    }
+    main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; }
+    h1 { font-size: 1rem; font-weight: 600; color: var(--muted); margin: 8px 0 12px; }
+    input {
+      width: 100%; font: inherit; font-size: 2.6rem; font-weight: 600; letter-spacing: .12em;
+      text-align: center; padding: 14px 12px; border-radius: 16px;
+      border: 2px solid var(--line); background: var(--card); color: var(--fg);
+      font-variant-numeric: tabular-nums;
+    }
+    input:focus { outline: none; border-color: var(--accent); }
+    input::placeholder { color: var(--line); letter-spacing: .12em; }
+    #result { margin-top: 24px; min-height: 8rem; }
+    .single { font-size: 2.2rem; font-weight: 700; line-height: 1.15; }
+    .note { color: var(--muted); font-size: 1.05rem; margin-top: 8px; }
+    .msg { font-size: 1.4rem; font-weight: 600; color: var(--muted); }
+    .split { background: var(--split-bg); color: var(--split-fg); border: 2px solid var(--split-line);
+             border-radius: 16px; padding: 16px 18px; }
+    .banner { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; }
+    .split ul { list-style: none; margin: 0; padding: 0; }
+    .split li { display: flex; justify-content: space-between; gap: 12px;
+                font-size: 1.6rem; font-weight: 600; padding: 6px 0; }
+    .split li + li { border-top: 1px solid var(--split-line); }
+    .pct { font-variant-numeric: tabular-nums; }
+    footer { max-width: 520px; margin: 24px auto 0; width: 100%;
+             color: var(--muted); font-size: .8rem; text-align: center; }
+    footer p { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Oregon ZIP → County</h1>
+    <input id="zip" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5"
+           autocomplete="off" autocorrect="off" spellcheck="false" placeholder="97___"
+           aria-label="ZIP code" autofocus>
+    <div id="result" aria-live="polite"></div>
+  </main>
+  <footer>
+    <p id="version"></p>
+    <p>This product uses the HUD User Data API but is not endorsed or certified by HUD User.</p>
+  </footer>
+
+  <script>
+const VERSION = "1.0";
+
+/* ZIPDATA:START */
+const DATA = {
+  "src": "HUD-USPS ZIP-COUNTY 2026Q2",
+  "label": "HUD-USPS 2026 Q2",
+  "byAll": ["97010", "97079", "97145", "97251", "97252", "97253", "97254", "97291", "97310", "97311", "97312", "97314", "97373", "97384", "97407", "97409", "97464", "97491", "97604"],
+  "zips": {
+    "97001": [["Wasco",100]],
+    "97002": [["Marion",84],["Clackamas",16]],
+    "97003": [["Washington",100]],
+    "97004": [["Clackamas",100]],
+    "97005": [["Washington",100]],
+    "97006": [["Washington",100]],
+    "97007": [["Washington",100]],
+    "97008": [["Washington",100]],
+    "97009": [["Clackamas",99],["Multnomah",1]],
+    "97010": [["Multnomah",100]],
+    "97011": [["Clackamas",100]],
+    "97013": [["Clackamas",100]],
+    "97014": [["Hood River",89],["Multnomah",11]],
+    "97015": [["Clackamas",100]],
+    "97016": [["Columbia",81],["Clatsop",19]],
+    "97017": [["Clackamas",100]],
+    "97018": [["Columbia",100]],
+    "97019": [["Multnomah",97],["Clackamas",3]],
+    "97020": [["Marion",100]],
+    "97021": [["Wasco",100]],
+    "97022": [["Clackamas",100]],
+    "97023": [["Clackamas",100]],
+    "97024": [["Multnomah",100]],
+    "97026": [["Marion",100]],
+    "97027": [["Clackamas",100]],
+    "97028": [["Clackamas",100]],
+    "97029": [["Sherman",100]],
+    "97030": [["Multnomah",100]],
+    "97031": [["Hood River",100]],
+    "97032": [["Marion",88],["Clackamas",12]],
+    "97033": [["Sherman",100]],
+    "97034": [["Clackamas",100]],
+    "97035": [["Clackamas",82],["Multnomah",17],["Washington",1]],
+    "97036": [["Clackamas",100]],
+    "97037": [["Wasco",100]],
+    "97038": [["Clackamas",100]],
+    "97039": [["Sherman",100]],
+    "97040": [["Wasco",100]],
+    "97041": [["Hood River",100]],
+    "97042": [["Clackamas",100]],
+    "97044": [["Hood River",100]],
+    "97045": [["Clackamas",100]],
+    "97048": [["Columbia",100]],
+    "97049": [["Clackamas",100]],
+    "97050": [["Sherman",100]],
+    "97051": [["Columbia",100]],
+    "97053": [["Columbia",100]],
+    "97054": [["Columbia",100]],
+    "97055": [["Clackamas",100]],
+    "97056": [["Columbia",98],["Multnomah",2]],
+    "97057": [["Wasco",100]],
+    "97058": [["Wasco",100]],
+    "97060": [["Multnomah",100]],
+    "97062": [["Washington",88],["Clackamas",12]],
+    "97063": [["Wasco",100]],
+    "97064": [["Columbia",100]],
+    "97065": [["Sherman",100]],
+    "97067": [["Clackamas",100]],
+    "97068": [["Clackamas",100]],
+    "97070": [["Clackamas",98],["Washington",2]],
+    "97071": [["Marion",97],["Clackamas",3]],
+    "97075": [["Washington",100]],
+    "97078": [["Washington",100]],
+    "97079": [["Washington",100]],
+    "97080": [["Multnomah",100]],
+    "97086": [["Clackamas",100]],
+    "97089": [["Clackamas",100]],
+    "97101": [["Yamhill",93],["Polk",7]],
+    "97102": [["Clatsop",95],["Tillamook",5]],
+    "97103": [["Clatsop",100]],
+    "97106": [["Washington",100]],
+    "97107": [["Tillamook",100]],
+    "97108": [["Tillamook",100]],
+    "97109": [["Washington",100]],
+    "97110": [["Clatsop",100]],
+    "97111": [["Yamhill",100]],
+    "97112": [["Tillamook",100]],
+    "97113": [["Washington",100]],
+    "97114": [["Yamhill",100]],
+    "97115": [["Yamhill",100]],
+    "97116": [["Washington",100]],
+    "97117": [["Washington",100]],
+    "97118": [["Tillamook",100]],
+    "97119": [["Washington",78],["Yamhill",22]],
+    "97121": [["Clatsop",100]],
+    "97122": [["Tillamook",100]],
+    "97123": [["Washington",98],["Yamhill",2]],
+    "97124": [["Washington",100]],
+    "97125": [["Washington",100]],
+    "97127": [["Yamhill",100]],
+    "97128": [["Yamhill",100]],
+    "97129": [["Washington",100]],
+    "97130": [["Tillamook",100]],
+    "97131": [["Tillamook",97],["Clatsop",3]],
+    "97132": [["Yamhill",99],["Washington",1]],
+    "97133": [["Washington",100]],
+    "97134": [["Tillamook",100]],
+    "97135": [["Tillamook",100]],
+    "97136": [["Tillamook",100]],
+    "97137": [["Marion",100]],
+    "97138": [["Clatsop",100]],
+    "97140": [["Washington",94],["Clackamas",5],["Yamhill",1]],
+    "97141": [["Tillamook",100]],
+    "97144": [["Washington",100]],
+    "97145": [["Clatsop",100]],
+    "97146": [["Clatsop",100]],
+    "97147": [["Tillamook",100]],
+    "97148": [["Yamhill",100]],
+    "97149": [["Tillamook",100]],
+    "97201": [["Multnomah",100]],
+    "97202": [["Multnomah",100]],
+    "97203": [["Multnomah",100]],
+    "97204": [["Multnomah",100]],
+    "97205": [["Multnomah",100]],
+    "97206": [["Multnomah",96],["Clackamas",4]],
+    "97207": [["Multnomah",100]],
+    "97208": [["Multnomah",100]],
+    "97209": [["Multnomah",100]],
+    "97210": [["Multnomah",98],["Washington",2]],
+    "97211": [["Multnomah",100]],
+    "97212": [["Multnomah",100]],
+    "97213": [["Multnomah",100]],
+    "97214": [["Multnomah",100]],
+    "97215": [["Multnomah",100]],
+    "97216": [["Multnomah",100]],
+    "97217": [["Multnomah",100]],
+    "97218": [["Multnomah",100]],
+    "97219": [["Multnomah",98],["Clackamas",2]],
+    "97220": [["Multnomah",100]],
+    "97221": [["Multnomah",100]],
+    "97222": [["Clackamas",100]],
+    "97223": [["Washington",100]],
+    "97224": [["Washington",100]],
+    "97225": [["Washington",100]],
+    "97227": [["Multnomah",100]],
+    "97228": [["Multnomah",100]],
+    "97229": [["Washington",91],["Multnomah",9]],
+    "97230": [["Multnomah",100]],
+    "97231": [["Multnomah",96],["Washington",4]],
+    "97232": [["Multnomah",100]],
+    "97233": [["Multnomah",100]],
+    "97236": [["Multnomah",100]],
+    "97238": [["Multnomah",100]],
+    "97239": [["Multnomah",100]],
+    "97240": [["Multnomah",100]],
+    "97242": [["Multnomah",100]],
+    "97250": [["Multnomah",100]],
+    "97251": [["Multnomah",100]],
+    "97252": [["Multnomah",100]],
+    "97253": [["Multnomah",100]],
+    "97254": [["Multnomah",100]],
+    "97266": [["Multnomah",100]],
+    "97267": [["Clackamas",100]],
+    "97268": [["Clackamas",100]],
+    "97269": [["Clackamas",100]],
+    "97280": [["Multnomah",100]],
+    "97281": [["Washington",100]],
+    "97282": [["Multnomah",100]],
+    "97283": [["Multnomah",100]],
+    "97286": [["Multnomah",100]],
+    "97290": [["Multnomah",100]],
+    "97291": [["Washington",100]],
+    "97292": [["Multnomah",100]],
+    "97293": [["Multnomah",100]],
+    "97294": [["Multnomah",100]],
+    "97296": [["Multnomah",100]],
+    "97298": [["Washington",100]],
+    "97301": [["Marion",100]],
+    "97302": [["Marion",100]],
+    "97303": [["Marion",100]],
+    "97304": [["Polk",100]],
+    "97305": [["Marion",100]],
+    "97306": [["Marion",100]],
+    "97307": [["Marion",100]],
+    "97308": [["Marion",100]],
+    "97309": [["Marion",100]],
+    "97310": [["Marion",100]],
+    "97311": [["Marion",100]],
+    "97312": [["Marion",100]],
+    "97314": [["Marion",100]],
+    "97317": [["Marion",100]],
+    "97321": [["Linn",69],["Benton",31]],
+    "97322": [["Linn",100]],
+    "97324": [["Benton",83],["Lincoln",15],["Lane",2]],
+    "97325": [["Marion",100]],
+    "97326": [["Lincoln",51],["Benton",49]],
+    "97327": [["Linn",100]],
+    "97329": [["Linn",100]],
+    "97330": [["Benton",100]],
+    "97331": [["Benton",100]],
+    "97333": [["Benton",95],["Linn",5]],
+    "97335": [["Linn",100]],
+    "97336": [["Linn",100]],
+    "97338": [["Polk",100]],
+    "97339": [["Benton",100]],
+    "97341": [["Lincoln",100]],
+    "97342": [["Marion",100]],
+    "97343": [["Lincoln",100]],
+    "97344": [["Polk",100]],
+    "97345": [["Linn",100]],
+    "97346": [["Marion",65],["Linn",35]],
+    "97347": [["Polk",75],["Yamhill",25]],
+    "97348": [["Linn",100]],
+    "97350": [["Marion",60],["Linn",40]],
+    "97351": [["Polk",100]],
+    "97352": [["Marion",99],["Linn",1]],
+    "97355": [["Linn",100]],
+    "97357": [["Lincoln",100]],
+    "97358": [["Linn",68],["Marion",32]],
+    "97360": [["Linn",80],["Marion",20]],
+    "97361": [["Polk",99],["Benton",1]],
+    "97362": [["Marion",99],["Clackamas",1]],
+    "97364": [["Lincoln",100]],
+    "97365": [["Lincoln",100]],
+    "97366": [["Lincoln",100]],
+    "97367": [["Lincoln",100]],
+    "97368": [["Lincoln",98],["Tillamook",2]],
+    "97369": [["Lincoln",100]],
+    "97370": [["Benton",100]],
+    "97371": [["Polk",100]],
+    "97373": [["Marion",100]],
+    "97374": [["Linn",100]],
+    "97375": [["Marion",91],["Clackamas",9]],
+    "97376": [["Lincoln",100]],
+    "97377": [["Linn",100]],
+    "97378": [["Yamhill",83],["Polk",17]],
+    "97380": [["Lincoln",100]],
+    "97381": [["Marion",100]],
+    "97383": [["Marion",92],["Linn",8]],
+    "97384": [["Marion",100]],
+    "97385": [["Marion",100]],
+    "97386": [["Linn",100]],
+    "97388": [["Lincoln",100]],
+    "97389": [["Linn",100]],
+    "97390": [["Lincoln",97],["Lane",3]],
+    "97391": [["Lincoln",100]],
+    "97392": [["Marion",100]],
+    "97394": [["Lincoln",100]],
+    "97396": [["Yamhill",67],["Polk",33]],
+    "97401": [["Lane",100]],
+    "97402": [["Lane",100]],
+    "97403": [["Lane",100]],
+    "97404": [["Lane",100]],
+    "97405": [["Lane",100]],
+    "97406": [["Curry",100]],
+    "97407": [["Coos",100]],
+    "97408": [["Lane",100]],
+    "97409": [["Lane",100]],
+    "97410": [["Douglas",100]],
+    "97411": [["Coos",100]],
+    "97412": [["Lane",100]],
+    "97413": [["Lane",100]],
+    "97414": [["Coos",100]],
+    "97415": [["Curry",100]],
+    "97416": [["Douglas",100]],
+    "97417": [["Douglas",100]],
+    "97419": [["Lane",100]],
+    "97420": [["Coos",100]],
+    "97423": [["Coos",100]],
+    "97424": [["Lane",98],["Douglas",2]],
+    "97426": [["Lane",100]],
+    "97429": [["Douglas",100]],
+    "97430": [["Lane",100]],
+    "97431": [["Lane",100]],
+    "97432": [["Douglas",100]],
+    "97434": [["Lane",100]],
+    "97435": [["Douglas",100]],
+    "97436": [["Douglas",100]],
+    "97437": [["Lane",100]],
+    "97438": [["Lane",100]],
+    "97439": [["Lane",100]],
+    "97440": [["Lane",100]],
+    "97441": [["Douglas",100]],
+    "97442": [["Douglas",100]],
+    "97443": [["Douglas",100]],
+    "97444": [["Curry",100]],
+    "97446": [["Linn",99],["Lane",1]],
+    "97447": [["Douglas",100]],
+    "97448": [["Lane",100]],
+    "97449": [["Coos",100]],
+    "97450": [["Curry",99],["Coos",1]],
+    "97451": [["Lane",100]],
+    "97452": [["Lane",100]],
+    "97453": [["Lane",100]],
+    "97454": [["Lane",100]],
+    "97455": [["Lane",100]],
+    "97456": [["Benton",93],["Lane",7]],
+    "97457": [["Douglas",100]],
+    "97458": [["Coos",100]],
+    "97459": [["Coos",100]],
+    "97461": [["Lane",100]],
+    "97462": [["Douglas",100]],
+    "97463": [["Lane",100]],
+    "97464": [["Curry",100]],
+    "97465": [["Curry",100]],
+    "97466": [["Coos",100]],
+    "97467": [["Douglas",100]],
+    "97469": [["Douglas",100]],
+    "97470": [["Douglas",100]],
+    "97471": [["Douglas",100]],
+    "97473": [["Douglas",100]],
+    "97475": [["Lane",100]],
+    "97476": [["Curry",100]],
+    "97477": [["Lane",100]],
+    "97478": [["Lane",100]],
+    "97479": [["Douglas",100]],
+    "97480": [["Lane",100]],
+    "97481": [["Douglas",100]],
+    "97484": [["Douglas",100]],
+    "97486": [["Douglas",100]],
+    "97487": [["Lane",100]],
+    "97488": [["Lane",100]],
+    "97489": [["Lane",100]],
+    "97490": [["Lane",100]],
+    "97491": [["Curry",100]],
+    "97492": [["Lane",100]],
+    "97493": [["Lane",95],["Douglas",5]],
+    "97494": [["Douglas",100]],
+    "97495": [["Douglas",100]],
+    "97496": [["Douglas",100]],
+    "97497": [["Josephine",99],["Jackson",1]],
+    "97498": [["Lincoln",98],["Lane",2]],
+    "97499": [["Douglas",100]],
+    "97501": [["Jackson",100]],
+    "97502": [["Jackson",100]],
+    "97503": [["Jackson",100]],
+    "97504": [["Jackson",100]],
+    "97520": [["Jackson",100]],
+    "97522": [["Jackson",100]],
+    "97523": [["Josephine",100]],
+    "97524": [["Jackson",100]],
+    "97525": [["Jackson",100]],
+    "97526": [["Josephine",99],["Jackson",1]],
+    "97527": [["Josephine",96],["Jackson",4]],
+    "97528": [["Josephine",100]],
+    "97530": [["Jackson",100]],
+    "97531": [["Josephine",100]],
+    "97532": [["Josephine",100]],
+    "97533": [["Josephine",100]],
+    "97534": [["Josephine",100]],
+    "97535": [["Jackson",100]],
+    "97536": [["Jackson",100]],
+    "97537": [["Jackson",100]],
+    "97538": [["Josephine",100]],
+    "97539": [["Jackson",100]],
+    "97540": [["Jackson",100]],
+    "97541": [["Jackson",100]],
+    "97543": [["Josephine",100]],
+    "97544": [["Josephine",100]],
+    "97601": [["Klamath",100]],
+    "97602": [["Klamath",100]],
+    "97603": [["Klamath",100]],
+    "97604": [["Klamath",100]],
+    "97620": [["Lake",100]],
+    "97621": [["Klamath",100]],
+    "97622": [["Klamath",100]],
+    "97623": [["Klamath",100]],
+    "97624": [["Klamath",100]],
+    "97625": [["Klamath",100]],
+    "97626": [["Klamath",100]],
+    "97627": [["Klamath",100]],
+    "97630": [["Lake",100]],
+    "97632": [["Klamath",100]],
+    "97633": [["Klamath",100]],
+    "97634": [["Klamath",100]],
+    "97635": [["Lake",100]],
+    "97636": [["Lake",100]],
+    "97637": [["Lake",100]],
+    "97638": [["Lake",100]],
+    "97639": [["Klamath",100]],
+    "97640": [["Lake",100]],
+    "97641": [["Lake",100]],
+    "97701": [["Deschutes",100]],
+    "97702": [["Deschutes",100]],
+    "97703": [["Deschutes",100]],
+    "97707": [["Deschutes",100]],
+    "97708": [["Deschutes",100]],
+    "97709": [["Deschutes",100]],
+    "97710": [["Harney",100]],
+    "97711": [["Jefferson",100]],
+    "97712": [["Deschutes",100]],
+    "97720": [["Harney",100]],
+    "97721": [["Harney",100]],
+    "97722": [["Harney",100]],
+    "97730": [["Jefferson",100]],
+    "97731": [["Klamath",65],["Douglas",35]],
+    "97732": [["Harney",100]],
+    "97733": [["Klamath",100]],
+    "97734": [["Jefferson",100]],
+    "97735": [["Lake",100]],
+    "97736": [["Harney",100]],
+    "97737": [["Klamath",100]],
+    "97738": [["Harney",100]],
+    "97739": [["Deschutes",91],["Klamath",9]],
+    "97741": [["Jefferson",100]],
+    "97750": [["Wheeler",100]],
+    "97751": [["Crook",100]],
+    "97752": [["Crook",100]],
+    "97753": [["Crook",100]],
+    "97754": [["Crook",100]],
+    "97756": [["Deschutes",100]],
+    "97758": [["Harney",100]],
+    "97759": [["Deschutes",100]],
+    "97760": [["Jefferson",51],["Deschutes",48],["Crook",1]],
+    "97761": [["Jefferson",100]],
+    "97801": [["Umatilla",100]],
+    "97810": [["Umatilla",100]],
+    "97812": [["Gilliam",100]],
+    "97813": [["Umatilla",100]],
+    "97814": [["Baker",100]],
+    "97817": [["Grant",100]],
+    "97818": [["Morrow",100]],
+    "97819": [["Baker",100]],
+    "97820": [["Grant",100]],
+    "97823": [["Gilliam",98],["Morrow",1],["Wheeler",1]],
+    "97824": [["Union",100]],
+    "97825": [["Grant",100]],
+    "97826": [["Umatilla",97],["Morrow",3]],
+    "97827": [["Union",100]],
+    "97828": [["Wallowa",100]],
+    "97830": [["Wheeler",99],["Gilliam",1]],
+    "97833": [["Baker",100]],
+    "97834": [["Baker",100]],
+    "97835": [["Umatilla",100]],
+    "97836": [["Morrow",100]],
+    "97837": [["Baker",100]],
+    "97838": [["Umatilla",100]],
+    "97839": [["Morrow",100]],
+    "97840": [["Baker",100]],
+    "97841": [["Union",100]],
+    "97842": [["Wallowa",100]],
+    "97843": [["Morrow",100]],
+    "97844": [["Morrow",100]],
+    "97845": [["Grant",100]],
+    "97846": [["Wallowa",100]],
+    "97848": [["Grant",100]],
+    "97850": [["Union",100]],
+    "97856": [["Grant",100]],
+    "97857": [["Wallowa",100]],
+    "97859": [["Umatilla",100]],
+    "97862": [["Umatilla",100]],
+    "97864": [["Grant",100]],
+    "97865": [["Grant",100]],
+    "97867": [["Union",88],["Baker",12]],
+    "97868": [["Umatilla",100]],
+    "97869": [["Grant",100]],
+    "97870": [["Baker",100]],
+    "97873": [["Grant",100]],
+    "97874": [["Wheeler",100]],
+    "97875": [["Umatilla",100]],
+    "97876": [["Union",100]],
+    "97877": [["Baker",87],["Grant",13]],
+    "97880": [["Umatilla",100]],
+    "97882": [["Umatilla",100]],
+    "97883": [["Union",99],["Baker",1]],
+    "97884": [["Baker",100]],
+    "97885": [["Wallowa",100]],
+    "97886": [["Umatilla",100]],
+    "97901": [["Malheur",100]],
+    "97902": [["Malheur",100]],
+    "97903": [["Malheur",100]],
+    "97904": [["Harney",100]],
+    "97905": [["Baker",100]],
+    "97906": [["Malheur",100]],
+    "97907": [["Baker",94],["Malheur",6]],
+    "97908": [["Malheur",100]],
+    "97909": [["Malheur",100]],
+    "97910": [["Malheur",100]],
+    "97911": [["Malheur",100]],
+    "97913": [["Malheur",100]],
+    "97914": [["Malheur",100]],
+    "97917": [["Malheur",100]],
+    "97918": [["Malheur",100]],
+    "97920": [["Malheur",100]]
+  }
+};
+/* ZIPDATA:END */
+
+const input = document.getElementById("zip");
+const result = document.getElementById("result");
+const byAll = new Set(DATA.byAll);
+
+document.getElementById("version").textContent = `v${VERSION} · Data: ${DATA.label}`;
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Oregon counties are stored bare ("Multnomah"); out-of-state ones already carry their state.
+const fullName = n => n.includes(", ") ? n : `${n} County`;
+
+function show(raw) {
+  const zip = raw.replace(/\D/g, "").slice(0, 5);
+  if (zip !== raw) input.value = zip;
+  if (zip.length < 5) { result.innerHTML = ""; return; }
+  if (!/^97\d{3}$/.test(zip)) { result.innerHTML = `<div class="msg">Not an Oregon ZIP.</div>`; return; }
+  const counties = DATA.zips[zip];
+  if (!counties) {
+    result.innerHTML = `<div class="msg">Not found — may be a PO Box-only or new ZIP.</div>`;
+    return;
+  }
+  const basis = byAll.has(zip) ? `<div class="note">(by all addresses)</div>` : "";
+  if (counties.length === 1) {
+    result.innerHTML = `<div class="single">${esc(fullName(counties[0][0]))}</div>${basis}`;
+    return;
+  }
+  const rows = counties.map(([n, p]) =>
+    `<li><span>${esc(n)}</span><span class="pct">${p}%</span></li>`).join("");
+  result.innerHTML = `<div class="split"><div class="banner">Spans ${counties.length} counties — check the address</div>` +
+    `<ul>${rows}</ul></div>${basis}`;
+}
+
+input.addEventListener("input", () => show(input.value));
+// Tapping the field after a lookup clears it for the next ZIP.
+input.addEventListener("pointerdown", () => {
+  if (input.value.length === 5) { input.value = ""; show(""); }
+});
+window.addEventListener("pageshow", () => input.focus());
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js", { scope: "./" });
+}
+  </script>
+</body>
+</html>
