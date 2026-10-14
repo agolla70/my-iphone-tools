@@ -35,6 +35,8 @@ my-iphone-tools/
 
 **This repo is public** (GitHub Pages on a free account). Never commit personal data, API keys, passwords, or anything private. If a tool would need private data, stop and ask.
 
+**Note:** API tokens go in Keychain and must be stored with -w "$VAR", not the hidden prompt. That way the 128-character snag never happens again.
+
 ## Platform conventions
 
 ### Home Screen web apps
