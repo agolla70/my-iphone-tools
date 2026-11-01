@@ -118,6 +118,8 @@
 // Progress is saved by exercise name, so renaming an exercise clears
 // its checkmarks for today (nothing else breaks).
 // If "sets" ever goes above 2, also add a column header in the HTML.
+// sets: 1 leaves the Set 2 spot blank. reps: null hides the reps line
+// (for timed holds).
 const ODD = [
   { name: "Seated elbow bend & straighten (no hand, thumb up)",         sets: 2, reps: 10 },
   { name: "Standing elbow extend (start arm curled up, hand over, palm up)",           sets: 2, reps: 10 },
@@ -127,6 +129,7 @@ const ODD = [
   { name: "Tendon glides (palm out, table/palm/claw/half-fist)",                        sets: 2, reps: 10 },
   { name: "Finger roll stretch (palm up)",                              sets: 2, reps: 10 },
   { name: "Finger extension (palm down on table)",                      sets: 2, reps: 10 },
+  { name: "Elbow on towel on edge of table. Straighten-hold 2 min-hand to stretch-hold 2 min-add light weight-hold 2 min", sets: 1, reps: null },
 ];
 const EVEN = [
   { name: "Seated elbow bend & straighten (no hand, thumb up)",         sets: 2, reps: 10 },
@@ -134,12 +137,13 @@ const EVEN = [
   { name: "Seated elbow bend & straighten (hand under, palm up, elbow on table)", sets: 2, reps: 10 },
   { name: "Tendon glides (palm out, table/palm/claw/half-fist)",                        sets: 2, reps: 10 },
   { name: "Finger extension (palm down on table)",                      sets: 2, reps: 10 },
+  { name: "Elbow on towel on edge of table. Straighten-hold 2 min-hand to stretch-hold 2 min-add light weight-hold 2 min", sets: 1, reps: null },
 ];
 const SESSION_COUNT = 5;
 const DEFAULT_REPS = 10;
 // ====================================================================
 
-const VERSION = "1.1";   // keep in step with sw.js
+const VERSION = "1.2";   // keep in step with sw.js
 const KEY = "pt-tracker-progress";
 
 const $ = id => document.getElementById(id);
@@ -205,7 +209,7 @@ function renderSession(n) {
     const label = document.createElement("span");
     label.className = "ex";
     label.textContent = ex.name;
-    if (ex.reps !== DEFAULT_REPS) {
+    if (ex.reps != null && ex.reps !== DEFAULT_REPS) {
       const r = document.createElement("span");
       r.className = "reps";
       r.textContent = `${ex.reps} reps`;

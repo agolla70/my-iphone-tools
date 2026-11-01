@@ -44,8 +44,8 @@ Keeps my place through 5 daily physical therapy sessions: I tap a session, check
 - In-app exercise editor. I'll ask Claude Code to update the lists.
 
 ## 5. Data
-- Fixed/embedded data: two exercise lists, every exercise 2 sets × 10 reps:
-  - Odd sessions (1, 3, 5), 8 exercises:
+- Fixed/embedded data: two exercise lists; every exercise is 2 sets × 10 reps unless noted:
+  - Odd sessions (1, 3, 5), 9 exercises:
     1. Seated elbow bend & straighten (no hand, thumb up)
     2. Standing elbow extend (start arm curled up, hand over, palm up)
     3. Seated elbow bend & straighten (hand under, palm up, elbow on table)
@@ -54,12 +54,14 @@ Keeps my place through 5 daily physical therapy sessions: I tap a session, check
     6. Tendon glides (palm out, table/palm/claw/half-fist)
     7. Finger roll stretch (palm up)
     8. Finger extension (palm down on table)
-  - Even sessions (2, 4), 5 exercises:
+    9. Elbow on towel on edge of table. Straighten-hold 2 min-hand to stretch-hold 2 min-add light weight-hold 2 min (1 set, timed holds, no reps)
+  - Even sessions (2, 4), 6 exercises:
     1. Seated elbow bend & straighten (no hand, thumb up)
     2. Standing elbow extend (start arm curled up, hand over, palm up)
     3. Seated elbow bend & straighten (hand under, palm up, elbow on table)
     4. Tendon glides (palm out, table/palm/claw/half-fist)
     5. Finger extension (palm down on table)
+    6. Elbow on towel on edge of table. Straighten-hold 2 min-hand to stretch-hold 2 min-add light weight-hold 2 min (1 set, timed holds, no reps)
   - Store reps/sets per exercise (e.g., `{name, sets: 2, reps: 10}`) so a future change to one exercise is easy.
 - User data it stores: which sets are done in each session, in localStorage. No export needed; losing it only loses today's place.
 - Live/online data: None (fully offline)
@@ -99,3 +101,4 @@ None
 - 2026-10-13: Brief created.
 - 2026-10-13: v1.0 built as specified. Progress is stored per exercise name, so renaming or removing an exercise just drops its checkmarks.
 - 2026-10-14: v1.1 – reworded five exercises after phone testing (both lists). Checkmarks on renamed exercises reset once.
+- 2026-10-31: v1.2 – added the elbow-on-towel hold (1 set, no reps) to the end of both lists.
