@@ -49,8 +49,8 @@ Keeps my place through 5 daily physical therapy sessions: I tap a session, check
     1. Seated elbow bend & straighten (no hand, thumb up)
     2. Standing elbow extend (start arm curled up, hand over, palm up)
     3. Seated elbow bend & straighten (hand under, palm up, elbow on table)
-    4. Seated wrist flex (palm down, flex down, pull in with hand, hold)
-    5. Seated wrist extension (palm up, flex down, pull in with hand, hold)
+    4. Seated wrist flex (palm down, flex down, pull in with hand, hold) (1 set)
+    5. Seated wrist extension (palm up, flex down, pull in with hand, hold) (1 set)
     6. Tendon glides (palm out, table/palm/claw/half-fist)
     7. Finger roll stretch (palm up)
     8. Finger extension (palm down on table)
@@ -62,6 +62,7 @@ Keeps my place through 5 daily physical therapy sessions: I tap a session, check
     4. Tendon glides (palm out, table/palm/claw/half-fist)
     5. Finger extension (palm down on table)
     6. Elbow on towel on edge of table. Straighten-hold 2 min-hand to stretch-hold 2 min-add light weight-hold 2 min (1 set, timed holds, no reps)
+  - Daily extra (not part of any session): Putty squeezes, 5-10 min, each hand, done twice a day. Shown as its own card under "Also today" on the Sessions screen with two tick boxes. It doesn't count toward sessions done; Reset clears it too.
   - Store reps/sets per exercise (e.g., `{name, sets: 2, reps: 10}`) so a future change to one exercise is easy.
 - User data it stores: which sets are done in each session, in localStorage. No export needed; losing it only loses today's place.
 - Live/online data: None (fully offline)
@@ -85,7 +86,9 @@ None
 
 ## 9. Done when (acceptance tests on the iPhone)
 - [ ] Works in airplane mode after the first launch
-- [ ] Session 1 shows 8 exercises; Session 2 shows 5
+- [ ] Session 1 shows 9 exercises (15 sets); Session 2 shows 6
+- [ ] Wrist flex and wrist extension show only one set button
+- [ ] Putty squeezes card on the Sessions screen: two boxes tick/untick, and Reset clears them
 - [ ] Tapping a set marks it done; tapping again undoes it
 - [ ] Marking the last set of a session returns to the Sessions screen immediately, with that session dimmed
 - [ ] Opening a dimmed session and undoing a set un-dims it
@@ -102,3 +105,4 @@ None
 - 2026-10-13: v1.0 built as specified. Progress is stored per exercise name, so renaming or removing an exercise just drops its checkmarks.
 - 2026-10-14: v1.1 – reworded five exercises after phone testing (both lists). Checkmarks on renamed exercises reset once.
 - 2026-10-31: v1.2 – added the elbow-on-towel hold (1 set, no reps) to the end of both lists.
+- 2026-11-13: v1.3 – wrist flex and wrist extension cut to 1 set. Added putty squeezes (twice a day) as a separate "Also today" card on the Sessions screen rather than inside sessions, because the timing doesn't follow the sessions.
