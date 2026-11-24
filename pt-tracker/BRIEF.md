@@ -63,6 +63,7 @@ Keeps my place through 5 daily physical therapy sessions: I tap a session, check
     7. Resistance Extension-back straight
     8. Resistance Flex-back straight
   - Daily extra (not part of any session): Putty squeezes, 5-10 min, each hand, done twice a day. Shown as its own card under "Also today" on the Sessions screen with two tick boxes. It doesn't count toward sessions done; Reset clears it too.
+  - Daily extra: Device, 3 times a day. Shown as a second row in the "Also today" card, under Putty squeezes, with three tick boxes. Same rules as putty.
   - Store reps/sets per exercise (e.g., `{name, sets: 2, reps: 10}`) so a future change to one exercise is easy.
 - User data it stores: which sets are done in each session, in localStorage. No export needed; losing it only loses today's place.
 - Live/online data: None (fully offline)
@@ -89,6 +90,7 @@ None
 - [ ] Session 1 shows 7 exercises (11 sets); Session 2 shows 8 exercises (15 sets)
 - [ ] Wrist flex/extension are gone; elbow-on-towel reads "…Straighten-hold 2 min. Add weight-hold 5 min" with one set button
 - [ ] Putty squeezes card on the Sessions screen: two boxes tick/untick, and Reset clears them
+- [ ] Device row under Putty squeezes: three boxes tick/untick, and Reset clears them
 - [ ] Tapping a set marks it done; tapping again undoes it
 - [ ] Marking the last set of a session returns to the Sessions screen immediately, with that session dimmed
 - [ ] Opening a dimmed session and undoing a set un-dims it
@@ -107,3 +109,4 @@ None
 - 2026-10-31: v1.2 – added the elbow-on-towel hold (1 set, no reps) to the end of both lists.
 - 2026-11-13: v1.3 – wrist flex and wrist extension cut to 1 set. Added putty squeezes (twice a day) as a separate "Also today" card on the Sessions screen rather than inside sessions, because the timing doesn't follow the sessions.
 - 2026-11-23: v1.4 – program change: removed wrist flex and wrist extension; elbow-on-towel shortened to "Straighten-hold 2 min. Add weight-hold 5 min" (still 1 set); added Resistance Extension and Resistance Flex (back straight, 2×10) to the end of sessions 2 and 4. Checkmarks on the renamed towel row reset once.
+- 2026-11-23: v1.5 – added "Device" (3 tick boxes) under Putty squeezes in "Also today". Rows without a detail line now skip the grey second line.

@@ -155,12 +155,13 @@ const EVEN = [
 // of any session. Each tick box is one time through (e.g. twice a day).
 const EXTRAS = [
   { name: "Putty squeezes", detail: "5-10 min, each hand", sets: 2 },
+  { name: "Device", sets: 3 },
 ];
 const SESSION_COUNT = 5;
 const DEFAULT_REPS = 10;
 // ====================================================================
 
-const VERSION = "1.4";   // keep in step with sw.js
+const VERSION = "1.5";   // keep in step with sw.js
 const KEY = "pt-tracker-progress";
 
 const $ = id => document.getElementById(id);
@@ -225,9 +226,9 @@ function renderExtras() {
     const doneCount = sets.filter(Boolean).length;
     const li = document.createElement("li");
     li.className = "extra" + (doneCount >= ex.sets ? " done" : "");
-    li.innerHTML = `<span class="text"><span class="name"></span><br><span class="meta"></span></span>`;
+    li.innerHTML = `<span class="text"><span class="name"></span>${ex.detail ? '<br><span class="meta"></span>' : ""}</span>`;
     li.querySelector(".name").textContent = ex.name;
-    li.querySelector(".meta").textContent = ex.detail;
+    if (ex.detail) li.querySelector(".meta").textContent = ex.detail;
     for (let i = 0; i < ex.sets; i++) {
       const b = document.createElement("button");
       b.type = "button";
