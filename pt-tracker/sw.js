@@ -1,6 +1,6 @@
 // pt-tracker service worker: pre-cache everything, serve cache-first.
 // Bump VERSION together with the one in index.html on every change.
-const VERSION = "1.3";
+const VERSION = "1.4";
 const CACHE = `pt-tracker-v${VERSION}`;
 const FILES = [
   "./",
